@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+
+.venv/
+venv/
+
+*.apk
+*.har
+*.idb
+*.i64
+*.log
+
