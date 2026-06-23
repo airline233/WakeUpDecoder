@@ -21,7 +21,6 @@ from cryptography.hazmat.primitives.serialization.pkcs7 import load_der_pkcs7_ce
 MAGIC = "8&%d*"
 SIGN_A_KEY = "@fG2SuLA"
 KEY_SALT = "@#AIjd83#@6B"
-DID_PARAM_KEY = "msyx6nw$jwk12.76alvkf"
 BAD_ANDROID_IDS = {
     "f0b2bc28e0fa907b",
     "a72e81be65c4638b",
@@ -174,15 +173,6 @@ def adid_from_android_id(android_id, model="", first_install_time=0):
         seed += f"{model}{int(first_install_time or 0)}"
     prefix = md5_hex(seed)
     return prefix + adid_checksum(prefix)
-
-
-def screen_for_getdid(screensize):
-    if not screensize or "x" not in screensize:
-        return screensize or ""
-    left, right = screensize.lower().split("x", 1)
-    if left.isdigit() and right.isdigit():
-        return f"{right}*{left}"
-    return screensize.replace("x", "*")
 
 
 def make_common_params(args, manifest_info):
@@ -562,75 +552,6 @@ def rc4_crypt(data, key):
     return bytes(out)
 
 
-def build_getdid_payload(
-    android_id="",
-    did="",
-    oaid="",
-    app_id="wakeup",
-    os_version="",
-    language="zh",
-    typewriting="",
-    power_on_time=None,
-    operator="",
-    country="CN",
-    brand="",
-    model="",
-    memory=0,
-    hard_disk=0,
-    uid="-1",
-    screen="",
-):
-    if power_on_time is None:
-        power_on_time = int(time.time() * 1000)
-    return {
-        "did": did or "",
-        "os": "android",
-        "appId": app_id,
-        "imei": "",
-        "imei1": "",
-        "imei2": "",
-        "oaid": oaid or "",
-        "sn": "",
-        "androidId": android_id or "",
-        "user": "",
-        "osVersion": str(os_version or ""),
-        "language": language or "",
-        "typewriting": typewriting or "",
-        "browser": "",
-        "powerOnTime": int(power_on_time),
-        "sysUpdateTime": 0,
-        "uid": -1,
-        "operator": operator or "",
-        "country": country or "",
-        "brand": brand or "",
-        "model": model or "",
-        "memory": int(memory or 0),
-        "cpu": "armeabi-v7a",
-        "hardDisk": int(hard_disk or 0),
-        "sdkVersion": "4",
-        "uidStr": str(uid),
-        "screen": screen or "",
-    }
-
-
-def encode_getdid_param(payload):
-    if isinstance(payload, str):
-        plain = payload
-    else:
-        plain = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-    return b64_no_wrap(rc4_crypt(plain.encode("utf-8"), DID_PARAM_KEY))
-
-
-def decrypt_getdid_param(param):
-    plain = rc4_crypt(base64.b64decode(param), DID_PARAM_KEY).decode("utf-8", "replace")
-    result = {"plain_text": plain}
-    try:
-        result["plain_json"] = json.loads(plain)
-    except json.JSONDecodeError:
-        pass
-    return result
-
-
 def build_antispam_request(sign_a, common_params):
     body_items = [("data", sign_a)] + common_params
     return {
@@ -656,37 +577,6 @@ def build_conf_request(token, common_params, nt="wifi", server_time=None, kakorr
     body = form_encode_items(common_params + [("nt", nt)])
     body += f"&sign={sign_pack}"
     return {
-        "sign_list": sorted(sign_list),
-        "joined_sign_params": joined,
-        "base64_sign_params": base64_param,
-        "sign": sign,
-        "body": body,
-    }
-
-
-def build_getdid_request(payload, token, common_params, nt="wifi", server_time=None, kakorr=None):
-    data_value = encode_getdid_param(payload)
-    server_time = int(server_time if server_time is not None else time.time())
-    kakorr = int(kakorr if kakorr is not None else time.monotonic() * 1000)
-
-    sign_list = [f"param={data_value}"]
-    sign_list.extend(f"{k}={v}" for k, v in common_params)
-    sign_list.extend([
-        f"nt={nt}",
-        f"_t_={server_time}",
-        f"kakorrhaphiophobia={kakorr}",
-    ])
-    joined = "".join(sorted(sign_list))
-    base64_param = b64_no_wrap(joined.encode("utf-8"))
-    sign = native_get_sign(base64_param, token)
-    sign_pack = f"{sign}&_t_={server_time}&kakorrhaphiophobia={kakorr}"
-
-    body = "&" + form_encode_items([("param", data_value)] + common_params + [("nt", nt)])
-    body += f"&sign={sign_pack}"
-    return {
-        "payload": payload,
-        "param": data_value,
-        "decoded_param": decrypt_getdid_param(data_value),
         "sign_list": sorted(sign_list),
         "joined_sign_params": joined,
         "base64_sign_params": base64_param,
@@ -734,7 +624,7 @@ def build_share_request(code, token, version_code, common_params, nt="wifi", did
     }
 
 
-def post_form(url, body, timeout, session=None, cuid="", did="", adid="", dp_ticket=None):
+def post_form(url, body, timeout, session=None, cuid="", did="", adid=""):
     client = session or requests
     headers = {
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
@@ -747,8 +637,6 @@ def post_form(url, body, timeout, session=None, cuid="", did="", adid="", dp_tic
         headers["zyb-did"] = did
     if adid:
         headers["zyb-adid"] = adid
-    if dp_ticket is not None:
-        headers["Dp-Ticket"] = dp_ticket
     return client.post(
         url,
         data=body.encode("utf-8"),
