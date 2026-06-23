@@ -72,7 +72,7 @@ def main():
     parser = argparse.ArgumentParser(description="Import/decrypt a WakeUp share code without HAR-derived parameters.")
     parser.add_argument("--apk", default=str(default_apk()) if default_apk() else None)
     parser.add_argument("--cuid", default=None)
-    parser.add_argument("--android-id", default=None, help="derive CUID as MD5_UPPER('com.baidu' + android_id) + '|0'")
+    parser.add_argument("--android-id", default="0000000000000000", help="derive CUID as MD5_UPPER('com.baidu' + android_id) + '|0'")
     parser.add_argument("--code", required=True, help="share code")
     parser.add_argument("--api-host", default="https://api.wakeup.fun")
     parser.add_argument("--antispam-host", default="https://api.wakeup.fun")
@@ -159,6 +159,17 @@ def main():
     share_payload = parse_json_or_text(share_resp.text)
     decrypted = sim.decrypt_response_data(share_resp.text, share["rc4_key"])
 
+    # 默认模式：只输出解析结果
+    if not args.verbose:
+        if isinstance(decrypted, dict) and "plain_json" in decrypted:
+            # 解密成功，输出 plain_json
+            print(json.dumps(decrypted["plain_json"], ensure_ascii=False, indent=2))
+        else:
+            # 解密失败，输出原始 body
+            print(share_resp.text)
+        return
+
+    # verbose 模式：输出完整调试信息
     output = {
         "ok": isinstance(share_payload, dict) and share_payload.get("errNo") == 0 and "error" not in decrypted,
         "apk": str(apk_path),
@@ -187,13 +198,12 @@ def main():
             "raw_response": share_payload,
             "decrypted_response": decrypted,
         },
+        "common_params": common_params,
+        "antispam_response": antispam_payload,
+        "share_request_body": share["body"],
     }
     if conf_result is not None:
         output["conf"] = conf_result
-    if args.verbose:
-        output["common_params"] = common_params
-        output["antispam_response"] = antispam_payload
-        output["share_request_body"] = share["body"]
 
     print(json.dumps(output, ensure_ascii=False, indent=2))
 
