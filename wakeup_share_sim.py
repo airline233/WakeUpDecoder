@@ -21,19 +21,6 @@ from cryptography.hazmat.primitives.serialization.pkcs7 import load_der_pkcs7_ce
 MAGIC = "8&%d*"
 SIGN_A_KEY = "@fG2SuLA"
 KEY_SALT = "@#AIjd83#@6B"
-BAD_ANDROID_IDS = {
-    "f0b2bc28e0fa907b",
-    "a72e81be65c4638b",
-    "e50e94c40048c5fd",
-    "6560ef232d8424bb",
-    "a5f5faddde9e9f02",
-    "0000000000000000",
-    "bfbcc646d92dfd48",
-    "7849ec22fb792e9",
-    "8e17f7422b35fbea",
-    "bdffe6621f1601f3",
-    "4cd3f8fba9ea1ce5",
-}
 
 IP = [
     57, 49, 41, 33, 25, 17, 9, 1, 59, 51, 43, 35, 27, 19, 11, 3,
@@ -144,16 +131,8 @@ def form_encode_items(items):
     return "&".join(f"{k}={android_quote(str(v))}" for k, v in items)
 
 
-def is_bad_android_id(android_id):
-    return not android_id or android_id.lower() in BAD_ANDROID_IDS
-
-
-def cuid_from_android_id(android_id, model="", first_install_time=0):
-    if is_bad_android_id(android_id):
-        seed = f"{model}{int(first_install_time or 0)}"
-    else:
-        seed = "com.baidu" + android_id
-    return md5_upper(seed) + "|0"
+def cuid_from_android_id(android_id):
+    return md5_upper("com.baidu" + (android_id or "")) + "|0"
 
 
 def adid_checksum(md5_text):
@@ -167,10 +146,8 @@ def adid_checksum(md5_text):
     return f"{(high32 ^ low32) & 0xFFFFFFFF:08x}"
 
 
-def adid_from_android_id(android_id, model="", first_install_time=0):
+def adid_from_android_id(android_id):
     seed = "alpha.beta" + (android_id or "")
-    if is_bad_android_id(android_id):
-        seed += f"{model}{int(first_install_time or 0)}"
     prefix = md5_hex(seed)
     return prefix + adid_checksum(prefix)
 

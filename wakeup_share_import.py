@@ -88,7 +88,6 @@ def main():
     parser.add_argument("--device", default="Pixel 7")
     parser.add_argument("--brand", default="google")
     parser.add_argument("--screensize", default="1080x2400")
-    parser.add_argument("--first-install-time", type=int, default=0, help="used only for bad/empty android_id fallback")
     parser.add_argument("--abis", default="arm64-v8a")
     parser.add_argument("--app-bit", default="64")
     parser.add_argument("--device-id", default="")
@@ -105,11 +104,11 @@ def main():
     if not args.cuid:
         if not args.android_id:
             raise SystemExit("Pass --cuid or --android-id.")
-        args.cuid = sim.cuid_from_android_id(args.android_id, args.device, args.first_install_time)
+        args.cuid = sim.cuid_from_android_id(args.android_id)
         cuid_source = "android_id"
     adid_source = "argument"
     if not args.adid and args.android_id:
-        args.adid = sim.adid_from_android_id(args.android_id, args.device, args.first_install_time)
+        args.adid = sim.adid_from_android_id(args.android_id)
         adid_source = "android_id"
 
     apk_path = Path(args.apk)
